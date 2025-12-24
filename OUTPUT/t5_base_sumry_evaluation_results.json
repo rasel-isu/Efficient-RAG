@@ -1,0 +1,229 @@
+{
+  "experiment_name": "used google/flan-t5-base for chunks summary",
+  "summary": {
+    "total_questions": 918,
+    "evaluation_date": "2025-12-11T19:04:49"
+  },
+  "basic_metrics": {
+    "exact_match_accuracy": 0.5370370370370371,
+    "partial_match_accuracy": 0.6721132897603486,
+    "mean_f1_score": 0.6331300447797503,
+    "median_f1_score": 1.0,
+    "std_f1_score": 0.4397235761017015
+  },
+  "by_question_type": {
+    "yes_no": {
+      "count": 420,
+      "exact_match_accuracy": 0.8357142857142857,
+      "mean_f1_score": 0.8357142857142857
+    },
+    "how": {
+      "count": 63,
+      "exact_match_accuracy": 0.1746031746031746,
+      "mean_f1_score": 0.35398875372502
+    },
+    "when": {
+      "count": 41,
+      "exact_match_accuracy": 0.4146341463414634,
+      "mean_f1_score": 0.5390869293308318
+    },
+    "what": {
+      "count": 221,
+      "exact_match_accuracy": 0.2895927601809955,
+      "mean_f1_score": 0.4339026631164318
+    },
+    "who": {
+      "count": 54,
+      "exact_match_accuracy": 0.3148148148148148,
+      "mean_f1_score": 0.5479661164301688
+    },
+    "which": {
+      "count": 11,
+      "exact_match_accuracy": 0.45454545454545453,
+      "mean_f1_score": 0.604040404040404
+    },
+    "why": {
+      "count": 25,
+      "exact_match_accuracy": 0.04,
+      "mean_f1_score": 0.21411365010341993
+    },
+    "other": {
+      "count": 51,
+      "exact_match_accuracy": 0.4117647058823529,
+      "mean_f1_score": 0.6240974893350717
+    },
+    "where": {
+      "count": 32,
+      "exact_match_accuracy": 0.1875,
+      "mean_f1_score": 0.5156440322341058
+    }
+  },
+  "error_analysis": {
+    "total_errors": 425,
+    "error_rate": 0.46296296296296297,
+    "sample_errors": [
+      {
+        "question": "Did Lincoln sign the National Banking Act of 1863?",
+        "expected": "yes",
+        "got": "No",
+        "type": "yes_no"
+      },
+      {
+        "question": "What did The Legal Tender Act of 1862 establish?",
+        "expected": "the United States Note, the first paper currency in United States history",
+        "got": "The Legal Tender Act of 1862 established the United States Note, the first paper currency in United States history.",
+        "type": "what"
+      },
+      {
+        "question": "Who suggested Lincoln grow a beard?",
+        "expected": "11-year-old Grace Bedell",
+        "got": "Grace Bedell",
+        "type": "who"
+      },
+      {
+        "question": "When did the Gettysburg address argue that America was born?",
+        "expected": "1776",
+        "got": "1863",
+        "type": "when"
+      },
+      {
+        "question": "Was Abraham Lincoln the first President of the United States?",
+        "expected": "No",
+        "got": "yes",
+        "type": "yes_no"
+      },
+      {
+        "question": "When did Lincoln first serve as President?",
+        "expected": "March 4, 1861",
+        "got": "1861",
+        "type": "when"
+      },
+      {
+        "question": "Who was the general in charge at the Battle of Antietam?",
+        "expected": "General McClellan",
+        "got": "McClellan",
+        "type": "who"
+      },
+      {
+        "question": "Why did Lincoln issue the Emancipation Proclamation?",
+        "expected": "To free slaves ",
+        "got": "The goal was to weaken the rebellion, which was led and controlled by slave owners.",
+        "type": "why"
+      },
+      {
+        "question": "How old was Lincoln in 1816?",
+        "expected": "seven",
+        "got": "seven years old",
+        "type": "how"
+      },
+      {
+        "question": "How long was Lincoln's legal Career?",
+        "expected": "23 years",
+        "got": "23-year",
+        "type": "how"
+      },
+      {
+        "question": "What trail did Lincoln use a Farmers' Almanac in? ",
+        "expected": "he defended William \"Duff\" Armstrong",
+        "got": "The Farmers' Almanac was used in the William \"Duff\" Armstrong murder trial.",
+        "type": "what"
+      },
+      {
+        "question": "Who is most noted for his contributions to the theory of molarity and molecular weight?",
+        "expected": "Amedeo Avogadro",
+        "got": "Avogadro",
+        "type": "who"
+      },
+      {
+        "question": "Who graduated in ecclesiastical law at the early age of 20 and began to practice?",
+        "expected": "Amedeo Avogadro",
+        "got": "He graduated in ecclesiastical law at the early age of 20 and began to practice",
+        "type": "who"
+      },
+      {
+        "question": "When did he become a professor?",
+        "expected": "1820",
+        "got": "In 1669",
+        "type": "when"
+      },
+      {
+        "question": "What happened in 1833?",
+        "expected": "Avogadro had been recalled to Turin university",
+        "got": "yes",
+        "type": "what"
+      },
+      {
+        "question": "Who determined the dependence of the boiling of water with atmospheric pressure?",
+        "expected": "Anders Celsius",
+        "got": "He",
+        "type": "who"
+      },
+      {
+        "question": "What is named after him?",
+        "expected": "The Celsius crater on the Moon",
+        "got": "Faraday",
+        "type": "what"
+      },
+      {
+        "question": "When did he publish a collection?",
+        "expected": "1733",
+        "got": "no",
+        "type": "when"
+      },
+      {
+        "question": "The Celsius crater on the Moon is what?",
+        "expected": "named after him",
+        "got": "no",
+        "type": "other"
+      },
+      {
+        "question": "Had his thermometer 100 for the freezing point of water and 0 for the boiling point ?",
+        "expected": "Yes it had",
+        "got": "yes",
+        "type": "other"
+      }
+    ]
+  },
+  "token_statistics": {
+    "avg_prompt_tokens": 248.72331154684096,
+    "avg_completion_tokens": 3.482570806100218,
+    "avg_total_tokens": 252.2058823529412,
+    "total_prompt_tokens": 228328,
+    "total_completion_tokens": 3197,
+    "total_tokens_used": 231525,
+    "median_prompt_tokens": 244.0,
+    "median_completion_tokens": 1.0
+  },
+  "bert_score": {
+    "precision": 0.9419320225715637,
+    "recall": 0.9383277893066406,
+    "f1": 0.9397187232971191,
+    "precision_std": 0.06864237785339355,
+    "recall_std": 0.07865031808614731,
+    "f1_std": 0.0719110444188118
+  },
+  "rouge_scores": {
+    "rouge1": {
+      "mean": 0.6486569648710809,
+      "std": 0.43304727631955087
+    },
+    "rouge2": {
+      "mean": 0.13336240241259673,
+      "std": 0.304903874515043
+    },
+    "rougeL": {
+      "mean": 0.6460947635308177,
+      "std": 0.4343626653846953
+    }
+  },
+  "semantic_similarity": {
+    "mean": 0.7485861778259277,
+    "std": 0.3281736671924591,
+    "min": -0.06228785216808319,
+    "max": 1.0000004768371582
+  },
+  "ragas_metrics": {
+    "error": "RAGAS requires retrieved contexts. Add \"contexts\" or \"retrieved_contexts\" field to your data.",
+    "note": "Example: {\"question\": \"...\", \"answer\": \"...\", \"rag_answer\": \"...\", \"contexts\": [\"context1\", \"context2\"]}"
+  }
+}

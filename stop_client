@@ -1,0 +1,3 @@
+
+pkill -f weaviate-
+ps -ef | grep weaviate | grep -v grep

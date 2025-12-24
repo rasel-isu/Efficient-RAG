@@ -4,20 +4,27 @@ import tiktoken
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv,find_dotenv
 import weaviate
+from weaviate.embedded import EmbeddedOptions
+from weaviate import WeaviateClient
+
 from llama_index.core.node_parser import SentenceWindowNodeParser, SentenceSplitter
+
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, \
-    StorageContext, Document
+    StorageContext, Document, Settings
+
+from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
+
 from llama_index.core.indices.loading import load_index_from_storage
 from llama_index.vector_stores.weaviate import WeaviateVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core.settings import Settings
+# from llama_index.core.settings import Settings
 from llama_index.llms.huggingface import HuggingFaceLLM
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from config import DIR_INDEX, DIR_PDF, INDEX_NAME
 
 
-# load_dotenv(find_dotenv())
+load_dotenv(find_dotenv())
 
 class TextCleaner:
 
@@ -48,6 +55,10 @@ class Indexing:
        )
        Settings.llm = OpenAI(model=self.model_name, temperature=0.1)
        Settings.embed_model = OpenAIEmbedding()
+       self.token_counter = TokenCountingHandler(
+            tokenizer=tiktoken.encoding_for_model(self.model_name).encode,
+            verbose=False)
+       Settings.callback_manager = CallbackManager([self.token_counter])
 
     def load_documents(self):
         documents = []
@@ -63,8 +74,10 @@ class Indexing:
             for docs in reader.iter_data():
                 for doc in docs:
                     clean_text = TextCleaner(doc.text).clean()
-                    doc.text = clean_text
-                    documents.append(doc)
+                    # doc.text = clean_text
+                    # documents.append(doc)
+                    new_doc = doc.copy(update={"text": clean_text})
+                    documents.append(new_doc)
         return documents
 
     def get_all_pdf(self):
@@ -85,33 +98,52 @@ class Indexing:
     
     def save_data_from_index_to_file(self, client):
 
-        response = client.data_object.get(
-            class_name=INDEX_NAME,
-            with_vector=True)
+        # response = client.data_object.get(
+        #     class_name=INDEX_NAME,
+        #     with_vector=True)
 
-        with open("index_data.json","w") as f:
-            json.dump(response, f, indent=2)
+        # with open("index_data.json","w") as f:
+        #     json.dump(response, f, indent=2)
+
+        collection = client.collections.get(INDEX_NAME)
+        exported = []
+        for item in collection.iterator(include_vector=True):
+            exported.append(
+                {
+                    "uuid": str(item.uuid),
+                    "properties": item.properties,  # your stored fields
+                    "vector": item.vector,          # embedding(s)
+                }
+            )
+        with open("index_data.json", "w") as f:
+            json.dump(exported, f, indent=2)
 
     def get_index(self):
         
-        client = weaviate.Client(
-            embedded_options=weaviate.embedded.EmbeddedOptions()
-            
-        )
+        client = WeaviateClient(embedded_options=EmbeddedOptions())
+        client.connect()
         vector_store = WeaviateVectorStore(
             weaviate_client = client,
             index_name = INDEX_NAME
         )
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
-        if client.schema.exists(INDEX_NAME):
-            client.schema.delete_class(INDEX_NAME)
+        
+        if client.collections.exists(INDEX_NAME):
+            client.collections.delete(INDEX_NAME)
+
+        # if client.schema.exists(INDEX_NAME):
+        #     client.schema.delete_class(INDEX_NAME)
+
+
         nodes = self.get_nodes()
         index = VectorStoreIndex(
             nodes,
             storage_context = storage_context,
         )
         
-        self.save_data_from_index_to_file(client)
+        # self.save_data_from_index_to_file(client)
+
+        # client.close()
 
         return index, nodes
     
@@ -120,9 +152,10 @@ class Indexing:
     #     index.storage_context.persist(DIR_INDEX)
 
     def load_index(self):
-        client = weaviate.Client(
+        client = WeaviateClient(
             embedded_options=weaviate.embedded.EmbeddedOptions(),
         )
+        client.connect()
         vector_store = WeaviateVectorStore(
             weaviate_client = client,
             index_name = INDEX_NAME
@@ -130,5 +163,6 @@ class Indexing:
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         index = VectorStoreIndex.from_vector_store(
             vector_store, storage_context=storage_context)
+        client.close()
         return index
         

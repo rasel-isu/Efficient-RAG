@@ -1,0 +1,5 @@
+Experiment,Avg Prompt Tokens,Avg Completion Tokens,Avg Total Tokens,Total Tokens Used,Median Prompt,Median Completion,Estimated Cost ($)
+used google/flan-t5-base for to retrieved docs chunks summary,248.72331154684096,3.482570806100218,252.2058823529412,231525,244.0,1.0,0.1157625
+used google/flan-t5-small for to retrieved docs chunks summary,258.2352941176471,3.8344226579520697,262.06971677559915,240580,252.0,1.0,0.12029
+used google/flan-t5-large for to retrieved docs chunks summary,259.2069716775599,3.855119825708061,263.062091503268,241491,255.0,1.0,0.1207455
+baseline_rag,653.3082788671024,4.886710239651416,658.1949891067538,604223,646.5,1.0,0.3021115

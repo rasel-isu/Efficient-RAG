@@ -5,6 +5,7 @@ pdf_file
 .env
 .idea/
 index_data.json
+DATASET/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

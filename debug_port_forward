@@ -1,0 +1,2 @@
+ssh -L 5677:localhost:5677 nova22-gpu-1
+# ssh -L 5677:localhost:5677 nova22-gpu-2

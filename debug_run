@@ -1,0 +1,3 @@
+
+
+python -m debugpy --listen 0.0.0.0:5677 --wait-for-client infer_on_dataset.py 
