@@ -6,11 +6,13 @@ pdf_file
 .idea/
 index_data.json
 DATASET/
+OUTPUT/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
+OUTPUT/
 # C extensions
 *.so
 

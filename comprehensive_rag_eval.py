@@ -1,20 +1,3 @@
-#!/usr/bin/env python3
-"""
-Comprehensive RAG Evaluation Script
-Evaluates RAG system performance using multiple metrics:
-- Exact Match, F1 Score, Partial Match
-- BERTScore (semantic similarity)
-- RAGAS metrics (faithfulness, answer relevancy, context precision/recall)
-- ROUGE scores
-- Token efficiency
-
-Installation:
-pip install bert-score ragas rouge-score sentence-transformers datasets openai python-dotenv
-
-Usage:
-python comprehensive_rag_eval.py --input baseline_rag.json --output evaluation_results.json
-"""
-
 import json
 import numpy as np
 import re
@@ -36,14 +19,12 @@ try:
     ROUGE_AVAILABLE = True
 except ImportError:
     ROUGE_AVAILABLE = False
-    print("⚠️  ROUGE not available. Install with: pip install rouge-score")
 
 try:
     from sentence_transformers import SentenceTransformer, util
     SENTENCE_TRANSFORMER_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMER_AVAILABLE = False
-    print("⚠️  Sentence Transformers not available. Install with: pip install sentence-transformers")
 
 try:
     from datasets import Dataset
@@ -57,25 +38,13 @@ try:
     RAGAS_AVAILABLE = True
 except ImportError:
     RAGAS_AVAILABLE = False
-    print("⚠️  RAGAS not available. Install with: pip install ragas datasets")
 
 
 class ComprehensiveRAGEvaluator:
-    """
-    Comprehensive evaluator for RAG systems with multiple metrics
-    """
-    
     def __init__(self, use_gpu: bool = False):
-        """
-        Initialize evaluator
-        
-        Args:
-            use_gpu: Whether to use GPU for computations (if available)
-        """
         self.device = "cuda" if use_gpu else "cpu"
         self.rouge_scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True) if ROUGE_AVAILABLE else None
-        
-        # Load sentence transformer model for semantic similarity
+
         if SENTENCE_TRANSFORMER_AVAILABLE:
             print("Loading sentence transformer model...")
             self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2', device=self.device)
@@ -506,6 +475,7 @@ def main():
         description='Comprehensive RAG Evaluation with Multiple Metrics',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+        
 Examples:
   # Basic evaluation
   python comprehensive_rag_eval.py --input baseline_rag.json
@@ -564,3 +534,7 @@ Required JSON format:
 
 if __name__ == '__main__':
     main()
+
+
+
+# python comprehensive_rag_eval.py --input OUTPUT/rag-mini-wikipedia/gpt-3.5-turbo/t5_large_sumry.json --output OUTPUT/rag-mini-wikipedia/gpt-3.5-turbo/t5_large_sumry_performence.json > OUTPUT/rag-mini-wikipedia/gpt-3.5-turbo/t5_large_sumry_performence.log 

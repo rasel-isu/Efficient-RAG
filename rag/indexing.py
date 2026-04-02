@@ -1,8 +1,11 @@
 import os
+from typing import List, Optional
 import json
 import tiktoken
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv,find_dotenv
+import torch
+from transformers import AutoTokenizer
 import weaviate
 from weaviate.embedded import EmbeddedOptions
 from weaviate import WeaviateClient
@@ -17,8 +20,10 @@ from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
 from llama_index.core.indices.loading import load_index_from_storage
 from llama_index.vector_stores.weaviate import WeaviateVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
 # from llama_index.core.settings import Settings
 from llama_index.llms.huggingface import HuggingFaceLLM
+
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from config import DIR_INDEX, DIR_PDF, INDEX_NAME
@@ -46,18 +51,41 @@ class Indexing:
 
     def __init__(self, texts=[]) -> None:
        self.texts = texts
-       self.model_name = "gpt-3.5-turbo"
+
+    #    self.model_name = "gpt-3.5-turbo"
+    #    Settings.llm = OpenAI(model=self.model_name, temperature=0.1)
+    #    Settings.embed_model = OpenAIEmbedding()
+
+
+       self.model_name = "meta-llama/Llama-3.2-3B-Instruct"
+       Settings.llm = HuggingFaceLLM(
+            model_name=self.model_name,
+            tokenizer_name=self.model_name,
+            # context_window=32768,
+            # max_new_tokens=1024,
+            # generate_kwargs={"temperature": 0.1, "do_sample": True},
+            # device_map="auto",
+            # model_kwargs={
+            #     "torch_dtype": torch.float16,
+            #     "load_in_4bit": True,  # 4-bit quantization to fit in memory
+            # }
+        )
+       Settings.embed_model =HuggingFaceEmbedding(model_name="BAAI/bge-base-en-v1.5")
+       hf_tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
+
+    #    tokenizer = tokenizer=tiktoken.encoding_for_model(self.model_name).encode
+       tokenizer = hf_tokenizer.encode
        Settings.text_splitter = SentenceSplitter(
            separator=" ", chunk_size=200, chunk_overlap=50,
            paragraph_separator="\n\n\n",
            secondary_chunking_regex="[^,.;。]+[,.;。]?",
-           tokenizer=tiktoken.encoding_for_model(self.model_name).encode
+           tokenizer=tokenizer
+    
        )
-       Settings.llm = OpenAI(model=self.model_name, temperature=0.1)
-       Settings.embed_model = OpenAIEmbedding()
+
+
        self.token_counter = TokenCountingHandler(
-            tokenizer=tiktoken.encoding_for_model(self.model_name).encode,
-            verbose=False)
+            tokenizer=tokenizer, verbose=False)
        Settings.callback_manager = CallbackManager([self.token_counter])
 
     def load_documents(self):

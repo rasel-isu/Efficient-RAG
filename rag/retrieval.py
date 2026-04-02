@@ -6,7 +6,6 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from llama_index.core.postprocessor import MetadataReplacementPostProcessor
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core import Settings
-from llama_index.core.callbacks import TokenCountingHandler
 
 _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Settings.debug = True
@@ -203,7 +202,7 @@ def summarize_for_query_with_chunks(
 
 class Retriever:
 
-    def __init__(self, index, nodes, token_counter) -> None:
+    def __init__(self, index, nodes, token_counter, summ_model_name=None) -> None:
         self.index, self.nodes = index, nodes
         self.postproc = MetadataReplacementPostProcessor(target_metadata_key="window")
         # BAAI/bge-reranker-base
@@ -213,13 +212,10 @@ class Retriever:
         self.rerank = SentenceTransformerRerank(top_n = 5, model = self.model_reranker)
         self.token_counter = token_counter
 
-        SUMM_MODEL_NAME = "google/flan-t5-small"  
-        # SUMM_MODEL_NAME = "google/flan-t5-base"
-        # SUMM_MODEL_NAME = "google/flan-t5-large"
-        
-        self.summ_tokenizer = AutoTokenizer.from_pretrained(SUMM_MODEL_NAME)
-        self.summ_model = AutoModelForSeq2SeqLM.from_pretrained(SUMM_MODEL_NAME).to(_device)
-        self.summ_model.eval()
+        if summ_model_name:
+            self.summ_tokenizer = AutoTokenizer.from_pretrained(summ_model_name)
+            self.summ_model = AutoModelForSeq2SeqLM.from_pretrained(summ_model_name).to(_device)
+            self.summ_model.eval()
             
 
     def get_response(self, query, human_pormpt=None):
@@ -244,7 +240,9 @@ class Retriever:
             'total_token':last_event.total_token_count,
         }
     
-    def get_token_effi_response(self, query, human_pormpt: str = None, use_summarizer: bool = True):
+    def get_token_effi_response(self, query, human_pormpt: str = None, 
+                                use_summarizer: bool = True, use_keyword_filtering: bool = True):
+
         # Retrieval + rerank (no generation yet) (contribution to final answer)
         retriever = self.index.as_retriever(
             similarity_top_k=5,
@@ -261,7 +259,10 @@ class Retriever:
             raw_text = node.get_content(metadata_mode="all")
 
             # keyword-based sentence filtering (contribution to final answer)
-            relevant = extract_relevant_sentences(raw_text, query, max_sentences=4)
+            if use_keyword_filtering:
+                relevant = extract_relevant_sentences(raw_text, query, max_sentences=4)
+            else:
+                relevant = raw_text
 
             if use_summarizer:
                 # LM-based query-aware summarization (contribution to final answer)
