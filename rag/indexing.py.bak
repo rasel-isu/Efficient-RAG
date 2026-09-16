@@ -49,12 +49,7 @@ class TextCleaner:
         return text
 class Indexing:
 
-    # Reader is configurable so the generator is a experimental variable rather
-    # than a hardcoded constant. CompAct evaluates with LLaMA3-8B; RECOMP with
-    # Flan-UL2 20B. Override per run with --reader or the RAG_READER env var.
-    DEFAULT_READER = os.environ.get("RAG_READER", "meta-llama/Llama-3.2-3B-Instruct")
-
-    def __init__(self, texts=[], reader: str = None) -> None:
+    def __init__(self, texts=[]) -> None:
        self.texts = texts
 
     #    self.model_name = "gpt-3.5-turbo"
@@ -62,23 +57,10 @@ class Indexing:
     #    Settings.embed_model = OpenAIEmbedding()
 
 
-       self.model_name = reader or self.DEFAULT_READER
+       self.model_name = "meta-llama/Llama-3.2-3B-Instruct"
        Settings.llm = HuggingFaceLLM(
             model_name=self.model_name,
             tokenizer_name=self.model_name,
-            # Llama-3.2-3B-Instruct ships do_sample=True / temperature=0.6 in its
-            # generation_config, and llama_index passes generate_kwargs through
-            # empty, so decoding was sampling by default - the same prompt gave
-            # different answers run to run. QA evaluation needs greedy decoding
-            # or no number is reproducible.
-            generate_kwargs={"do_sample": False, "temperature": None, "top_p": None},
-            # Few-shot prompting makes the reader continue the pattern and invent
-            # further Q/A pairs; only the first line is kept, so ~97% of a default
-            # 256-token generation is decoded and then thrown away. Decode
-            # dominates runtime here, so capping this is the single biggest
-            # speedup available. 96 covers the 99th-percentile kept answer
-            # (~85 tokens) with margin.
-            max_new_tokens=int(os.environ.get("RAG_MAX_NEW_TOKENS", "96")),
             # context_window=32768,
             # max_new_tokens=1024,
             # generate_kwargs={"temperature": 0.1, "do_sample": True},
@@ -93,9 +75,6 @@ class Indexing:
 
     #    tokenizer = tokenizer=tiktoken.encoding_for_model(self.model_name).encode
        tokenizer = hf_tokenizer.encode
-       # exposed so the retriever can measure context length with the
-       # generator's own tokenizer rather than a different (cl100k) one
-       self.tokenizer = tokenizer
        Settings.text_splitter = SentenceSplitter(
            separator=" ", chunk_size=200, chunk_overlap=50,
            paragraph_separator="\n\n\n",

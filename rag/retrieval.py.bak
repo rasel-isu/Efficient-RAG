@@ -7,7 +7,7 @@ import tiktoken
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from llama_index.core.postprocessor import MetadataReplacementPostProcessor
 from llama_index.core.postprocessor import SentenceTransformerRerank
-from llama_index.core import Settings, QueryBundle
+from llama_index.core import Settings
 
 _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Settings.debug = True
@@ -208,116 +208,58 @@ def summarize_for_query_with_chunks(
     return final_summary
 
 
-
 class Retriever:
 
-    def __init__(self, index, nodes, token_counter, summ_model_name=None,
-                 tokenizer=None) -> None:
+    def __init__(self, index, nodes, token_counter, summ_model_name=None) -> None:
         self.index, self.nodes = index, nodes
         self.postproc = MetadataReplacementPostProcessor(target_metadata_key="window")
         # BAAI/bge-reranker-base
         # link: https://huggingface.co/BAAI/bge-reranker-base
         self.model_reranker = "BAAI/bge-reranker-base"
+        # model_reranker = model
         self.rerank = SentenceTransformerRerank(top_n = 5, model = self.model_reranker)
         self.token_counter = token_counter
-        # count context tokens with the generator's own tokenizer, not cl100k
-        self.tokenizer = tokenizer
 
         if summ_model_name:
             self.summ_tokenizer = AutoTokenizer.from_pretrained(summ_model_name)
             self.summ_model = AutoModelForSeq2SeqLM.from_pretrained(summ_model_name).to(_device)
             self.summ_model.eval()
+            
 
-    def _n_tokens(self, text: str) -> int:
-        if self.tokenizer is None:
-            return _count_tokens(text)
-        return len(self.tokenizer(text))
+    def get_response(self, query, human_pormpt=None):
 
-    def _retrieve(self, query: str, similarity_top_k: int = 5):
-        """
-        Retrieve, then apply the node postprocessors explicitly.
 
-        `index.as_retriever()` accepts **kwargs and silently drops
-        `node_postprocessors` - it is a query-engine argument, not a retriever
-        one - so passing them there means no metadata replacement and no
-        reranking ever run. We apply them by hand instead.
-
-        Retrieval always uses the bare question; the answer-format instruction
-        belongs in the prompt, not in the retrieval query.
-        """
-        retriever = self.index.as_retriever(
-            similarity_top_k = similarity_top_k,
-            vector_store_query_mode = "hybrid",
-            alpha = 0.5,
-        )
-        query_bundle = QueryBundle(query)
-        nodes = retriever.retrieve(query_bundle)
-        for postprocessor in (self.postproc, self.rerank):
-            nodes = postprocessor.postprocess_nodes(nodes, query_bundle=query_bundle)
-        return nodes
-
-    DEFAULT_INSTRUCTION = (
-        "If the correct answer is yes or no, reply ONLY 'yes' or 'no'. "
-        "Otherwise, reply with the exact answer and no additional text."
-    )
-
-    def _build_prompt(self, query: str, context: str, human_pormpt: str = None,
-                      style: str = "qa_default") -> str:
-        """One prompt template for every condition, so the only thing that varies
-        between baseline and compressed runs is `context` itself.
-
-        `style` controls where the answer-format instruction sits. Small
-        instruction-tuned readers follow it far more reliably when it sits
-        immediately before the generation point than when it opens the prompt
-        with a long context in between.
-        """
-        instr = human_pormpt or self.DEFAULT_INSTRUCTION
-        if style == "instruction_first":
-            return f"""{instr}
-Use ONLY the information in the context below to answer the question.
-
-Question: {query}
-
-Context:
-{context}
-
-Answer:"""
-        if style == "qa_default":
-            # Replicates llama_index's DEFAULT_TEXT_QA_PROMPT_TMPL, which the
-            # original baseline used via query_engine.query(). The format
-            # instruction is glued to the query line with no newline: on its own
-            # line it reads as a standalone directive and a small reader answers
-            # "yes"/"no" to factual questions.
-            return f"""Context information is below.
----------------------
-{context}
----------------------
-Given the context information and not prior knowledge, answer the query.
-Query: {query}{instr}
-Answer: """
-
-        return f"""Use ONLY the information in the context below to answer the question.
-
-Context:
-{context}
-
-Question: {query}
-{instr}
-Answer:"""
-
-    def get_response(self, query, human_pormpt=None, **kw):
-        """Baseline RALM: full retrieved context, no compression."""
-        return self.get_token_effi_response(
-            query, human_pormpt=human_pormpt,
-            use_summarizer=False, use_keyword_filtering=False, **kw
+        query_engine = self.index.as_query_engine(
+            similarity_top_k = 5,
+            vector_store_query_mode="hybrid",
+            alpha=0.5,
+            node_postprocessors = [self.postproc, self.rerank],
         )
 
-    def get_token_effi_response(self, query, human_pormpt: str = None,
-                                use_summarizer: bool = True, use_keyword_filtering: bool = True,
-                                prompt_style: str = "qa_default", use_chat: bool = False):
+        if human_pormpt:
+            query = query + human_pormpt
+
+        response = query_engine.query(query)
+
+        last_event = self.token_counter.llm_token_counts[-1]
+        return str(response), {
+            'prompt_token':last_event.prompt_token_count,
+            'completion_token':last_event.completion_token_count,
+            'total_token':last_event.total_token_count,
+        }
+    
+    def get_token_effi_response(self, query, human_pormpt: str = None, 
+                                use_summarizer: bool = True, use_keyword_filtering: bool = True):
 
         t0 = time.perf_counter()
-        nodes = self._retrieve(query)
+        # Retrieval + rerank (no generation yet) (contribution to final answer)
+        retriever = self.index.as_retriever(
+            similarity_top_k=5,
+            vector_store_query_mode="hybrid",
+            alpha=0.5,
+            node_postprocessors=[self.postproc, self.rerank],
+        )
+        nodes = retriever.retrieve(query)  
         t_retrieval = (time.perf_counter() - t0) * 1000
 
         # capture the RAW retrieved context (before compression) for recall@k + ratio
@@ -325,25 +267,23 @@ Answer:"""
         raw_texts = []
         for node_with_score in nodes:
             node = node_with_score.node
-            # metadata_mode="llm" excludes the `window` / `original_text` metadata
-            # keys, which SentenceWindowNodeParser marks as LLM-excluded. Using
-            # "all" here instead re-injects the window plus literal "window:" /
-            # "original_text:" labels, inflating the context roughly 3x.
-            raw_text = node.get_content(metadata_mode="llm")
+            raw_text = node.get_content(metadata_mode="all")
             raw_texts.append(raw_text)
             retrieved_chunks.append({
                 "title": node.metadata.get("title", node.node_id),
                 "text": raw_text,
                 "score": float(node_with_score.score) if node_with_score.score is not None else None,
             })
-        retrieved_context_tokens = self._n_tokens("\n\n".join(raw_texts))
+        retrieved_context_tokens = _count_tokens("\n\n".join(raw_texts))
 
+        
         # Build compressed, query-aware snippets(compressed representation)contribution to final answer
         compressed_snippets = []
         t_filter = 0.0
         t_summarize = 0.0
         for i, node_with_score in enumerate(nodes):
-            raw_text = raw_texts[i]
+            node = node_with_score.node
+            raw_text = node.get_content(metadata_mode="all")
 
             # keyword-based sentence filtering (contribution to final answer)
             if use_keyword_filtering:
@@ -357,7 +297,7 @@ Answer:"""
                 # LM-based query-aware summarization (contribution to final answer)
                 ts = time.perf_counter()
                 mini_summary = summarize_for_query_with_chunks(relevant, query,
-                                                   self.summ_tokenizer, self.summ_model, max_new_tokens=1000)
+                                                   self.summ_tokenizer,self.summ_model, max_new_tokens=1000)
                 t_summarize += (time.perf_counter() - ts) * 1000
             else:
                 mini_summary = relevant
@@ -366,22 +306,31 @@ Answer:"""
             compressed_snippets.append(f"{header}\n{mini_summary}")
 
         context = "\n\n".join(compressed_snippets)
-        compressed_context_tokens = self._n_tokens(context)
+        compressed_context_tokens = _count_tokens(context)
 
-        final_prompt = self._build_prompt(query, context, human_pormpt, style=prompt_style)
+        # Final prompt for answer generation(contribution to final answer)
+        instruction = (
+            "If the correct answer is yes or no, reply ONLY 'yes' or 'no'. "
+            "Otherwise, reply with the exact answer and no additional text.\n"
+        )
+        if human_pormpt:
+            instruction += human_pormpt + "\n"
 
+        final_prompt = f"""{instruction}
+You are given several short, query-aware snippets that are already 
+highly relevant to the question. Answer using ONLY this information.
+
+Question: {query}
+
+Snippets:
+{context}
+
+Answer:"""
         tg = time.perf_counter()
         llm = Settings.llm
-        if use_chat:
-            # routes through the tokenizer's chat template; HuggingFaceLLM reports
-            # is_chat_model=False, so .complete() would send the raw string instead
-            from llama_index.core.llms import ChatMessage, MessageRole
-            answer_raw = llm.chat(
-                [ChatMessage(role=MessageRole.USER, content=final_prompt)]
-            ).message.content
-        else:
-            answer_raw = llm.complete(final_prompt).text
+        answer_resp = llm.complete(final_prompt)
         t_generate = (time.perf_counter() - tg) * 1000
+        answer_raw = answer_resp.text          # BEFORE cleaning
         answer_text = answer_raw.strip()
 
         last_event = self.token_counter.llm_token_counts[-1]
